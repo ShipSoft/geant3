@@ -40,6 +40,12 @@ install(DIRECTORY
   COMPONENT Development
 )
 
+# Install the data directory which is needed at runtime
+install(DIRECTORY
+  ${PROJECT_SOURCE_DIR}/data
+  DESTINATION ${CMAKE_INSTALL_PREFIX}/share/geant3
+)
+
 #
 # Install the Geant3Config, Geant3ConfigVersion
 #

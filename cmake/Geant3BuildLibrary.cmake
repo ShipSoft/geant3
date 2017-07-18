@@ -26,6 +26,7 @@ include_directories(
   ${PROJECT_SOURCE_DIR}
   ${PROJECT_SOURCE_DIR}/minicern
   ${PROJECT_SOURCE_DIR}/TGeant3 
+  ${CMAKE_INSTALL_PREFIX}/include/TGeant3
   ${CMAKE_CURRENT_BINARY_DIR})
 
 #-------------------------------------------------------------------------------
@@ -47,21 +48,12 @@ ROOT_GENERATE_DICTIONARY(
   LINKDEF ${CMAKE_CURRENT_SOURCE_DIR}/TGeant3/geant3LinkDef.h)
 
 #-------------------------------------------------------------------------------
-# Make sure a default build type is used
-#
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING
-      "Choose the type of build, options are: Debug Release RelWithDebInfo
-       MinSizeRel." FORCE)
-endif(NOT CMAKE_BUILD_TYPE)
-
-#-------------------------------------------------------------------------------
 # Locate sources for this project
 #
 set(directories
     added gbase gcons geocad ggeom gheisha ghits ghrout ghutils giface giopa
     gkine gparal gphys gscan gstrag gtrak matx55 miface miguti neutron peanut
-    fiface cgpack fluka block comad erdecks erpremc minicern gdraw)
+    fiface cgpack fluka block comad erdecks erpremc minicern gdraw gcalor)
 
 # Fortran sources
 set(fortran_sources gcinit.F)
@@ -102,10 +94,7 @@ file(GLOB cxx_sources
 file(GLOB headers ${PROJECT_SOURCE_DIR}/TGeant3/*.h)
 
 #---Add definitions-------------------------------------------------------------
-# cernlib settings
-add_definitions(-DCERNLIB_BLDLIB -DCERNLIB_CZ)
-# add flags to make gfortran build stable at -O2
-set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -finit-local-zero -fno-strict-overflow")
+add_definitions(-DCERNLIB_LXIA64 -DCERNLIB_BLDLIB -DCERNLIB_CZ)
 # Architecture dependent not ported flags:
 # -DCERNLIB_LINUX (linux, linuxx8664icc, linuxicc, macosx, macosxxlc, macosicc)
 # -DCERNLIB_PPC (macosx64, macosxxlc, macosicc)
@@ -113,11 +102,6 @@ set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -finit-local-zero -fno-strict-ov
 # -DCERNLIB_DECS (alphagcc, alphacxx6)
 # -DCERNLIB_SUN (solarisCC5)
 # -DCERNLIB_HPUX (hpuxacc)
-if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-  add_definitions(-DCERNLIB_LXIA64)
-else()
-  add_definitions(-DCERNLIB_LINUX)
-endif()
 if (${CMAKE_Fortran_COMPILER} MATCHES gfortran+)
   add_definitions(-DCERNLIB_GFORTRAN)
 endif()
@@ -129,8 +113,7 @@ if (${CMAKE_Fortran_COMPILER} MATCHES g95+)
 endif()
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
   # using Clang
-  set(CMAKE_SHARED_LINKER_FLAGS
-      "${CMAKE_SHARED_LINKER_FLAGS} -undefined dynamic_lookup -Wl,-no_compact_unwind")
+  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -undefined dynamic_lookup")
 endif()
 
 #---Add library-----------------------------------------------------------------
