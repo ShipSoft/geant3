@@ -527,6 +527,7 @@ Cleanup of code
 
 #include "TCallf77.h"
 #include "TVirtualMCDecayer.h"
+#include "TVirtualMCSensitiveDetector.h"
 #include "TPDGCode.h"
 
 #ifndef WIN32
@@ -1117,7 +1118,10 @@ TGeant3::TGeant3()
     fPDGCode(),
     fMCGeo(0),
     fImportRootGeometry(kFALSE),
-    fStopRun(kFALSE)
+    fStopRun(kFALSE),
+    fExclusiveSDScoring(kFALSE),
+    fUserSDs(),
+    fUserSDMap()
 {
   //
   // Default constructor
@@ -1135,7 +1139,10 @@ TGeant3::TGeant3(const char *title, Int_t nwgeant)
     fMCGeo(0),
     fImportRootGeometry(kFALSE),
     fStopRun(kFALSE),
-    fSkipNeutrinos(kTRUE)
+    fSkipNeutrinos(kTRUE),
+    fExclusiveSDScoring(kFALSE),
+    fUserSDs(),
+    fUserSDMap()
 {
   //
   // Standard constructor for TGeant3 with ZEBRA initialization
@@ -3141,6 +3148,16 @@ Double_t TGeant3::Edep() const
   // Return the energy lost in the current step
   //
   return fGctrak->destep;
+}
+
+//______________________________________________________________________
+Double_t TGeant3::NIELEdep() const
+{
+  //
+  // Return the non-ionizing energy deposit in the current step.
+  // Dummy implementaion - as this info is not available in Geant3.
+  //
+  return 0.;
 }
 
 //______________________________________________________________________
@@ -6318,6 +6335,55 @@ TString  TGeant3::ParticleClass(TMCParticleType particleType) const
   }
 }
 
+//_____________________________________________________________________________
+void TGeant3::SetSensitiveDetector(const TString& volumeName,
+                                   TVirtualMCSensitiveDetector* userSD)
+{
+  // Add the userSD in the vector only once
+  if ( fUserSDs.find(userSD) == fUserSDs.end() ) {
+    fUserSDs.insert(userSD);
+  }
+
+  if ( fUserSDMap.find(volumeName) == fUserSDMap.end() ) {
+    fUserSDMap[volumeName] = userSD;
+  } else {
+    Warning("SetSensitiveDetector",
+      "A sensitive detector for volume %s has been already defined. Setting was ingored.\n",
+      volumeName.Data());
+  }
+}
+
+//_____________________________________________________________________________
+TVirtualMCSensitiveDetector* TGeant3::GetSensitiveDetector(const TString& volumeName) const
+{
+  std::map<TString, TVirtualMCSensitiveDetector*>::const_iterator it
+    = fUserSDMap.find(volumeName);
+
+  if ( it == fUserSDMap.end() ) {
+    return 0;
+  }
+
+  return it->second;
+}
+
+//_____________________________________________________________________________
+TVirtualMCSensitiveDetector* TGeant3::GetCurrentSensitiveDetector() const
+{
+  return GetSensitiveDetector(CurrentVolName());
+}
+
+//_____________________________________________________________________________
+void TGeant3::SetExclusiveSDScoring(Bool_t exclusiveSDScoring)
+{
+  fExclusiveSDScoring = exclusiveSDScoring;
+}
+
+//_____________________________________________________________________________
+Bool_t TGeant3::IsExclusiveSDScoring() const
+{
+  return fExclusiveSDScoring;
+}
+
 //______________________________________________________________________
 void TGeant3::FinishGeometry()
 {
@@ -6365,7 +6431,9 @@ void TGeant3::Init()
 #if ROOT_VERSION_CODE >= ROOT_VERSION(5,01,1)
     fApplication->ConstructOpGeometry();
 #endif
+    fApplication->ConstructSensitiveDetectors();
     fApplication->InitGeometry();
+    InitSDs();
 }
 
 //____________________________________________________________________________
@@ -6385,6 +6453,7 @@ Bool_t TGeant3::ProcessRun(Int_t nevent)
      if (fStopRun) break;
      ProcessEvent();
      if (fStopRun) break;
+     EndOfEventForSDs();
      fApplication->FinishEvent();
      if (fStopRun) break;
   }
@@ -7157,4 +7226,23 @@ Int_t TGeant3::GetSpecialPdg(Int_t number) const
 // Numbering for special particles
 
   return 50000000 + number;
-}                
+}
+
+//__________________________________________________________________
+void TGeant3::InitSDs()
+{
+  std::set<TVirtualMCSensitiveDetector*>::iterator it;
+  for (it = fUserSDs.begin(); it != fUserSDs.end(); it++ ) {
+     (*it)->Initialize();
+  }
+}
+
+//__________________________________________________________________
+void TGeant3::EndOfEventForSDs()
+{
+  std::set<TVirtualMCSensitiveDetector*>::iterator it;
+  for (it = fUserSDs.begin(); it != fUserSDs.end(); it++ ) {
+     (*it)->EndOfEvent();
+     if ( fStopRun ) break;
+  }
+}
